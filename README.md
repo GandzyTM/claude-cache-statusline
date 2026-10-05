@@ -133,9 +133,18 @@ estimate only: it cannot know whether you still need the context, hence the
 question mark. While the cache is warm there is no advice, and without a
 context reading (right after `/clear` or a compaction) there is none either.
 
-Set the threshold with `CACHE_INDICATOR_CLEAR_PCT` (integer 1-100, default 30;
-anything else falls back to 30). To see it in the terminal without waiting an
-hour, point the script at a fake stamp 2h old:
+On desktop the band also shows a `/clear` button next to the advice. It puts
+`/clear` into an empty prompt and nothing more: you press Enter yourself. If you
+have already typed something, it leaves the draft alone and says so.
+
+The threshold is a percent of the window (integer 1-100, default 30). Set it in
+`/config` (the mod's `clear_pct` option) or override it with the
+`CACHE_INDICATOR_CLEAR_PCT` environment variable; a value outside 1-100 is
+ignored. `statusline.sh` cannot read plugin options, so the mod records the
+effective value in `~/.claude/statusline-cache/clear_pct` at session start and
+the script reads it (order: environment variable, that file, 30). To see the
+advice in the terminal without waiting an hour, point the script at a fake
+stamp 2h old:
 
 ```
 mkdir -p /tmp/cfg/statusline-cache && echo $(( $(date +%s) - 7300 )) > /tmp/cfg/statusline-cache/t.last
