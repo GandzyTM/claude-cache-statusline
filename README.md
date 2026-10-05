@@ -123,6 +123,26 @@ docs do not say either way), so on desktop the mod itself draws a one-row
 band above the prompt (`Prompt cache warm ~42m`) from the same file. In the
 terminal the band is not drawn, to avoid showing the indicator twice.
 
+### `/clear` advice
+
+When the cache is cold (idle for 1h or more) and the context fills at least
+30% of the window, the indicator reads `cache cold (2h) · /clear?` (orange in
+the terminal, red in the desktop band). Resuming then re-writes the whole
+context to the cache, so a fresh session may be cheaper. This is a cost
+estimate only: it cannot know whether you still need the context, hence the
+question mark. While the cache is warm there is no advice, and without a
+context reading (right after `/clear` or a compaction) there is none either.
+
+Set the threshold with `CACHE_INDICATOR_CLEAR_PCT` (integer 1-100, default 30;
+anything else falls back to 30). To see it in the terminal without waiting an
+hour, point the script at a fake stamp 2h old:
+
+```
+mkdir -p /tmp/cfg/statusline-cache && echo $(( $(date +%s) - 7300 )) > /tmp/cfg/statusline-cache/t.last
+echo '{"session_id":"t","cwd":"/tmp","context_window":{"used_percentage":40}}' \
+  | CLAUDE_CONFIG_DIR=/tmp/cfg bash statusline.sh
+```
+
 Without the mod nothing changes: the script falls back to the heuristic above.
 Subagent requests are ignored (they have their own cache). Right after a
 resume there is no timestamp yet, so the fallback applies until the first
