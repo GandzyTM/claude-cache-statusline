@@ -122,7 +122,20 @@ if [ -n "$LAST_ACTIVITY" ]; then
     fi
   else
     IDLE_H=$(( IDLE / 3600 ))
-    CACHE_STR="$(c '38;5;244')cache cold (${IDLE_H}h)${RESET}"
+    # Cold cache + big context: resuming re-writes the whole context, so
+    # suggest /clear (a cost estimate only: it cannot know the context is
+    # still needed). Threshold: % of the window, default 30.
+    CLEAR_PCT=30
+    case "$CACHE_INDICATOR_CLEAR_PCT" in
+      ''|*[!0-9]*) ;;
+      *) [ "$CACHE_INDICATOR_CLEAR_PCT" -ge 1 ] && [ "$CACHE_INDICATOR_CLEAR_PCT" -le 100 ] \
+           && CLEAR_PCT=$CACHE_INDICATOR_CLEAR_PCT ;;
+    esac
+    if [ "$CTX_INT" -ge "$CLEAR_PCT" ]; then
+      CACHE_STR="$(c '38;5;208')cache cold (${IDLE_H}h) · /clear?${RESET}"
+    else
+      CACHE_STR="$(c '38;5;244')cache cold (${IDLE_H}h)${RESET}"
+    fi
   fi
 fi
 
