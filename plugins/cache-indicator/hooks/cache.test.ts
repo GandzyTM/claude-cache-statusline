@@ -26,12 +26,22 @@ test('parseStamp', async () => {
   expect(parseStamp('junk')).toBe(null)
 })
 
-import { advice, parseThreshold } from './cache'
+import { advice, parseThreshold, resolveThreshold } from './cache'
 
 test('parseThreshold', async () => {
   expect(parseThreshold(undefined)).toBe(30)
   expect(parseThreshold('45')).toBe(45)
   for (const bad of ['abc', '0', '101', '-5', '', '4.5']) expect(parseThreshold(bad)).toBe(30)
+  // a userConfig number
+  expect(parseThreshold(45)).toBe(45)
+  for (const bad of [0, 101, 4.5, -5, NaN]) expect(parseThreshold(bad)).toBe(30)
+})
+test('resolveThreshold: env beats the option, an invalid env falls to the option', async () => {
+  expect(resolveThreshold('50', 20)).toBe(50)
+  expect(resolveThreshold(undefined, 20)).toBe(20)
+  expect(resolveThreshold('abc', 20)).toBe(20)
+  expect(resolveThreshold('abc', 0)).toBe(30)
+  expect(resolveThreshold(undefined, undefined)).toBe(30)
 })
 test('advice', async () => {
   expect(advice(null, 100, 90, 30)).toBe(null)
@@ -39,8 +49,8 @@ test('advice', async () => {
   expect(advice(0, 3599, 90, 30)).toEqual(view(0, 3599))
   // cold below / at the threshold
   expect(advice(0, 3600, 29, 30)).toEqual({ label: 'cold (1h)', color: 'gray' })
-  expect(advice(0, 3600, 30, 30)).toEqual({ label: 'cold (1h) · /clear?', color: 'red' })
-  expect(advice(0, 7300, 50, 30)).toEqual({ label: 'cold (2h) · /clear?', color: 'red' })
+  expect(advice(0, 3600, 30, 30)).toEqual({ label: 'cold (1h) · /clear?', color: 'red', isClearAdvised: true })
+  expect(advice(0, 7300, 50, 30)).toEqual({ label: 'cold (2h) · /clear?', color: 'red', isClearAdvised: true })
   // unknown context size: no advice
   expect(advice(0, 3600, null, 30)).toEqual({ label: 'cold (1h)', color: 'gray' })
 })

@@ -15,7 +15,7 @@ export function stampPath(configDir: string | undefined, home: string | undefine
 export const TTL_S = 3600
 export const WARN_S = 600
 
-export type CacheView = { label: string; color: string }
+export type CacheView = { label: string; color: string; isClearAdvised?: true }
 
 // What the desktop band says: time since the last request that touched the
 // cache. It is the client's estimate of a 1h window, not a server-side fact.
@@ -37,11 +37,23 @@ export function parseStamp(text: string): number | null {
 
 export const DEFAULT_CLEAR_PCT = 30
 
+// A whole percent 1..100 from an env string or a userConfig number, else null.
+function toPct(raw: string | number | undefined): number | null {
+  if (typeof raw === 'string') {
+    if (!/^\d+$/.test(raw)) return null
+    raw = Number(raw)
+  }
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 1 && raw <= 100 ? raw : null
+}
+
 // Context-fill percent at which a cold cache turns into a /clear suggestion.
-export function parseThreshold(raw: string | undefined): number {
-  if (raw === undefined || !/^\d+$/.test(raw)) return DEFAULT_CLEAR_PCT
-  const n = Number(raw)
-  return n >= 1 && n <= 100 ? n : DEFAULT_CLEAR_PCT
+export function parseThreshold(raw: string | number | undefined): number {
+  return toPct(raw) ?? DEFAULT_CLEAR_PCT
+}
+
+// The env var overrides the userConfig option; either falls back to the default.
+export function resolveThreshold(env: string | undefined, option: number | undefined): number {
+  return toPct(env) ?? toPct(option) ?? DEFAULT_CLEAR_PCT
 }
 
 // `view`, plus a /clear suggestion when the cache is cold and the context is
@@ -56,5 +68,5 @@ export function advice(
   const v = view(lastS, nowS)
   if (v === null || lastS === null || nowS - lastS < TTL_S) return v
   if (pct === null || pct < thresholdPct) return v
-  return { label: `${v.label} · /clear?`, color: 'red' }
+  return { label: `${v.label} · /clear?`, color: 'red', isClearAdvised: true }
 }
