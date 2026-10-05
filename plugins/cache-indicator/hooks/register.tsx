@@ -1,6 +1,6 @@
 import type { Register } from 'claude-code'
 
-import { parseStamp, stampPath, touchesCache, view } from './cache'
+import { advice, parseStamp, parseThreshold, stampPath, touchesCache } from './cache'
 
 const TICK_MS = 30_000
 
@@ -61,7 +61,16 @@ export const register: Register = on => {
     } catch {
       return next(e)
     }
-    const v = view(last, Math.floor((await $.clock.now()) / 1000))
+    // Live context fill, as the status line reads it; absent right after /clear
+    // or a compaction, in which case no advice is given.
+    let pct: number | null = null
+    try {
+      pct = (await $.session.usage()).context.percent ?? null
+    } catch {
+      // no advice without a reading
+    }
+    const threshold = parseThreshold(await $.env.get('CACHE_INDICATOR_CLEAR_PCT'))
+    const v = advice(last, Math.floor((await $.clock.now()) / 1000), pct, threshold)
     if (v === null) return next(e)
 
     const { Box, Text } = $.ui.resolve(e)
