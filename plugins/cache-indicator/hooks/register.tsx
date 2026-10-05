@@ -13,8 +13,9 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // session.start does not fire after /clear, so the tick must outlive it.
   on('session.end', ($, e, next) => {
-    tick?.cancel()
+    if (e.reason !== 'clear') tick?.cancel()
     return next(e)
   })
 
