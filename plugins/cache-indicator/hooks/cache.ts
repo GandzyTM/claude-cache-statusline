@@ -12,6 +12,11 @@ export function stampPath(configDir: string | undefined, home: string | undefine
   return `${base}/statusline-cache/${sessionId}.last`
 }
 
+// Where the mod records the effective /clear threshold for statusline.sh.
+export function thresholdPath(configDir: string | undefined, home: string | undefined): string {
+  return `${configDir || `${home ?? ''}/.claude`}/statusline-cache/clear_pct`
+}
+
 export const TTL_S = 3600
 export const WARN_S = 600
 

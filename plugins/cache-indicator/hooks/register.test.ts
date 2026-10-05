@@ -81,3 +81,76 @@ test('band: CACHE_INDICATOR_CLEAR_PCT lowers the threshold', async ($, on) => {
   })
   expect(await band.find({ type: 'Text', text: '/clear?' })).toBeDefined()
 })
+
+test('band: clear_pct from userConfig sets the threshold', { options: { clear_pct: 5 } }, async ($, on) => {
+  const band = await drawBand($, on, { idleS: 7300, percent: 5 })
+  expect(await band.find({ type: 'Text', text: '/clear?' })).toBeDefined()
+})
+
+test('band: the env var overrides userConfig', { options: { clear_pct: 5 } }, async ($, on) => {
+  const band = await drawBand($, on, {
+    idleS: 7300,
+    percent: 5,
+    env: { CACHE_INDICATOR_CLEAR_PCT: '50' },
+  })
+  expect(await band.find({ type: 'Text', text: '/clear?' })).toBeUndefined()
+})
+
+// The /clear button: shown with the advice only; puts /clear in an empty prompt.
+function stubPrompt(on: any, draft: string) {
+  const seen = { filled: [] as string[], toasts: [] as string[] }
+  on('prompt.read', () => ({ value: { text: draft, cursor: draft.length } }) as never)
+  on('prompt.fill', (_$: unknown, e: { text: string }) => {
+    seen.filled.push(e.text)
+    return { value: { isFilled: true } } as never
+  })
+  on('ui.toast', (_$: unknown, e: { text: string }) => {
+    seen.toasts.push(e.text)
+    return { value: undefined } as never
+  })
+  return seen
+}
+
+test('band: advice shows a /clear button', async ($, on) => {
+  const band = await drawBand($, on, { idleS: 7300, percent: 40 })
+  expect(await band.find({ type: 'Button', key: 'clear' })).toBeDefined()
+})
+
+for (const [name, o] of [
+  ['context below the threshold', { idleS: 7300, percent: 29 }],
+  ['no context reading', { idleS: 7300, percent: undefined }],
+  ['warm cache', { idleS: 600, percent: 90 }],
+] as const) {
+  test(`band: no /clear button: ${name}`, async ($, on) => {
+    const band = await drawBand($, on, o)
+    expect(await band.find({ type: 'Button', key: 'clear' })).toBeUndefined()
+  })
+}
+
+test('band: pressing /clear fills an empty prompt and does not submit', async ($, on) => {
+  const seen = stubPrompt(on, '')
+  const band = await drawBand($, on, { idleS: 7300, percent: 40 })
+  await band.press({ key: 'clear' })
+  expect(seen.filled).toEqual(['/clear'])
+})
+
+test('band: pressing /clear leaves a typed draft alone and says why', async ($, on) => {
+  const seen = stubPrompt(on, 'half-written question')
+  const band = await drawBand($, on, { idleS: 7300, percent: 40 })
+  await band.press({ key: 'clear' })
+  expect(seen.filled).toEqual([])
+  expect(seen.toasts.length).toBe(1)
+})
+
+test('session.start records the threshold for statusline.sh', { options: { clear_pct: 45 } }, async ($, on) => {
+  mock.clock(on)
+  mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg' })
+  const writes: Record<string, string> = {}
+  on('fs.write', (_$: unknown, e: { path: string; text: string }) => {
+    writes[e.path] = e.text
+    return { value: undefined } as never
+  })
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/' } as never)
+  expect(writes['/cfg/statusline-cache/clear_pct']).toBe('45\n')
+})

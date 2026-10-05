@@ -1,15 +1,32 @@
-import type { Register } from 'claude-code'
+import type { Engine, Register } from 'claude-code'
 
-import { advice, parseStamp, parseThreshold, stampPath, touchesCache } from './cache'
+import { advice, parseStamp, resolveThreshold, stampPath, thresholdPath, touchesCache } from './cache'
 
 const TICK_MS = 30_000
 
-export const register: Register = on => {
+// CACHE_INDICATOR_CLEAR_PCT overrides the clear_pct userConfig option.
+async function clearThreshold($: Engine, option: unknown): Promise<number> {
+  return resolveThreshold(
+    await $.env.get('CACHE_INDICATOR_CLEAR_PCT'),
+    typeof option === 'number' ? option : undefined,
+  )
+}
+
+export const register: Register = (on, options) => {
   let tick: { cancel: () => void } | undefined
 
-  on('session.start', ($, e, next) => {
+  on('session.start', async ($, e, next) => {
     tick?.cancel()
     tick = $.clock.every(TICK_MS, () => $.ui.invalidate('ui.render'))
+    // statusline.sh cannot read userConfig, so it reads the threshold from here.
+    try {
+      await $.fs.write(
+        thresholdPath(await $.env.get('CLAUDE_CONFIG_DIR'), await $.env.get('HOME')),
+        `${await clearThreshold($, options.clear_pct)}\n`,
+      )
+    } catch {
+      // the indicator must never break a session
+    }
     return next(e)
   })
 
@@ -70,15 +87,31 @@ export const register: Register = on => {
     } catch {
       // no advice without a reading
     }
-    const threshold = parseThreshold(await $.env.get('CACHE_INDICATOR_CLEAR_PCT'))
+    const threshold = await clearThreshold($, options.clear_pct)
     const v = advice(last, Math.floor((await $.clock.now()) / 1000), pct, threshold)
     if (v === null) return next(e)
 
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+
+    // Puts /clear in the prompt for the person to confirm with Enter; never
+    // submits it, and never overwrites a draft they have typed.
+    const putClearInPrompt = async () => {
+      try {
+        if ((await $.prompt.read()).text.trim() !== '') {
+          $.ui.toast('The prompt is not empty: clear it, then press /clear again')
+          return
+        }
+        await $.prompt.fill({ text: '/clear' })
+      } catch {
+        // a button press must never break the session
+      }
+    }
+
     return (
-      <Box>
+      <Box columnGap={1}>
         <Text dimColor>Prompt cache </Text>
         <Text color={v.color}>{v.label}</Text>
+        {v.isClearAdvised ? <Button key="clear" label="/clear" onPress={putClearInPrompt} /> : null}
       </Box>
     )
   })
