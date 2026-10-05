@@ -96,7 +96,7 @@ Everything lives in one readable `statusline.sh` — no build step. In particula
   (minimum 1). Lower values tick more smoothly but re-run the script more
   often.
 
-## How the cache indicator works
+## How the cache indicator works (statusline.sh)
 
 There's no "time since last API request" field in the status line's JSON
 input, and the transcript file's mtime alone isn't a reliable proxy (it can
@@ -105,6 +105,33 @@ tracks the transcript's **byte size** across invocations in a small per-session
 state file (`~/.claude/statusline-cache/<session_id>.state`) and only advances
 "last activity" when the transcript actually grew — the real signal that a new
 turn (and therefore a new request that refreshes the cache) happened.
+
+## Mod: cache-indicator (event-driven, optional)
+
+`plugins/cache-indicator` is a Claude Code mod (terminal and desktop) that
+gives `statusline.sh` an exact timestamp instead of the transcript-size guess.
+The `turn.step` hook fires on every model request of the main loop; its final
+`stop` chunk carries the API's token usage. A request with
+`cache_read_input_tokens` or `cache_creation_input_tokens` above zero refreshes
+the 1-hour window, so the mod writes that moment (epoch seconds, taken when the
+response completes) to `~/.claude/statusline-cache/<session_id>.last`.
+`statusline.sh` reads it when present and shows the same
+`cache warm ~Nm` / `cache cold (Nh)` indicator next to the context bar.
+
+Without the mod nothing changes: the script falls back to the heuristic above.
+Subagent requests are ignored (they have their own cache). Right after a
+resume there is no timestamp yet, so the fallback applies until the first
+cached request.
+
+Install:
+
+```
+/plugin marketplace add GandzyTM/claude-cache-statusline
+/plugin install cache-indicator@gandzy-plugins
+```
+
+Update: `/plugin marketplace update gandzy-plugins`. Local test:
+`claude --plugin-dir ./plugins/cache-indicator`.
 
 ## License
 

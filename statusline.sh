@@ -75,19 +75,31 @@ CONTEXT_BAR="${FILL_COLOR}${BAR}${RESET} ${CTX_INT}%"
 # transcript *size* ourselves in a small per-session state file: "last
 # activity" only advances when the transcript actually grew since the last
 # statusline call, which is the real proxy for a new request happening.
+# If the optional cache-indicator mod is installed, it records the exact time
+# of the last cache-touching request from turn events, and that wins.
 TRANSCRIPT=$(echo "$input" | jq -r '.transcript_path // empty')
 SESSION_ID=$(echo "$input" | jq -r '.session_id // "unknown"')
 CACHE_STR=""
-if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-  STATE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline-cache"
+STATE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline-cache"
+EVENT_FILE="${STATE_DIR}/${SESSION_ID}.last"
+NOW=$(date +%s)
+LAST_ACTIVITY=""
+
+# Preferred source: the cache-indicator mod writes the exact epoch second of
+# the last request that read/wrote the prompt cache (turn events).
+if [ -f "$EVENT_FILE" ]; then
+  read -r EVENT_TS < "$EVENT_FILE"
+  case "$EVENT_TS" in ''|*[!0-9]*) ;; *) LAST_ACTIVITY=$EVENT_TS ;; esac
+fi
+
+# Fallback without the mod: guess from the transcript size.
+if [ -z "$LAST_ACTIVITY" ] && [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   mkdir -p "$STATE_DIR"
   STATE_FILE="${STATE_DIR}/${SESSION_ID}.state"
 
   CUR_SIZE=$(stat -f %z "$TRANSCRIPT" 2>/dev/null || stat -c %s "$TRANSCRIPT" 2>/dev/null)
-  NOW=$(date +%s)
 
   LAST_SIZE=""
-  LAST_ACTIVITY=""
   if [ -f "$STATE_FILE" ]; then
     read -r LAST_SIZE LAST_ACTIVITY < "$STATE_FILE"
   fi
@@ -96,7 +108,9 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
     LAST_ACTIVITY=$NOW
     echo "${CUR_SIZE} ${LAST_ACTIVITY}" > "$STATE_FILE"
   fi
+fi
 
+if [ -n "$LAST_ACTIVITY" ]; then
   IDLE=$(( NOW - LAST_ACTIVITY ))
   if [ "$IDLE" -lt 3600 ]; then
     LEFT_MIN=$(( (3600 - IDLE) / 60 ))

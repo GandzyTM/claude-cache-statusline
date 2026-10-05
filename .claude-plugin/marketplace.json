@@ -1,0 +1,11 @@
+{
+  "name": "gandzy-plugins",
+  "owner": { "name": "GandzyTM" },
+  "plugins": [
+    {
+      "name": "cache-indicator",
+      "source": "./plugins/cache-indicator",
+      "description": "Точное время последнего запроса с prompt-cache для statusline.sh (по событиям хода)"
+    }
+  ]
+}
