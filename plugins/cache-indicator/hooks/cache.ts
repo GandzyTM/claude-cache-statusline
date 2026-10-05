@@ -11,3 +11,26 @@ export function stampPath(configDir: string | undefined, home: string | undefine
   const base = configDir || `${home ?? ''}/.claude`
   return `${base}/statusline-cache/${sessionId}.last`
 }
+
+export const TTL_S = 3600
+export const WARN_S = 600
+
+export type CacheView = { label: string; color: string }
+
+// What the desktop band says: time since the last request that touched the
+// cache. It is the client's estimate of a 1h window, not a server-side fact.
+export function view(lastS: number | null, nowS: number): CacheView | null {
+  if (lastS === null) return null
+  const idle = Math.max(0, nowS - lastS)
+  if (idle >= TTL_S) return { label: `cold (${Math.floor(idle / TTL_S)}h)`, color: 'gray' }
+  const leftS = TTL_S - idle
+  return {
+    label: `warm ~${Math.floor(leftS / 60)}m`,
+    color: leftS <= WARN_S ? 'yellow' : 'green',
+  }
+}
+
+export function parseStamp(text: string): number | null {
+  const t = text.trim()
+  return /^\d+$/.test(t) ? Number(t) : null
+}

@@ -118,6 +118,11 @@ response completes) to `~/.claude/statusline-cache/<session_id>.last`.
 `statusline.sh` reads it when present and shows the same
 `cache warm ~Nm` / `cache cold (Nh)` indicator next to the context bar.
 
+The Desktop app's Code tab did not show the status line in testing (the
+docs do not say either way), so on desktop the mod itself draws a one-row
+band above the prompt (`Prompt cache warm ~42m`) from the same file. In the
+terminal the band is not drawn, to avoid showing the indicator twice.
+
 Without the mod nothing changes: the script falls back to the heuristic above.
 Subagent requests are ignored (they have their own cache). Right after a
 resume there is no timestamp yet, so the fallback applies until the first

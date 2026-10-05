@@ -1,6 +1,6 @@
 {
   "name": "cache-indicator",
-  "version": "0.2.0",
-  "description": "Записывает точное время последнего запроса с prompt-cache для statusline.sh (по событиям хода)",
+  "version": "0.3.0",
+  "description": "Время последнего запроса с prompt-cache по событиям хода: для statusline.sh и полоса над промптом в desktop",
   "author": { "name": "GandzyTM" }
 }
