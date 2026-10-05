@@ -124,13 +124,19 @@ if [ -n "$LAST_ACTIVITY" ]; then
     IDLE_H=$(( IDLE / 3600 ))
     # Cold cache + big context: resuming re-writes the whole context, so
     # suggest /clear (a cost estimate only: it cannot know the context is
-    # still needed). Threshold: % of the window, default 30.
+    # still needed). Threshold, % of the window: CACHE_INDICATOR_CLEAR_PCT,
+    # else the value the cache-indicator mod recorded from its clear_pct
+    # option, else 30. A value that is not an integer 1..100 is skipped.
     CLEAR_PCT=30
-    case "$CACHE_INDICATOR_CLEAR_PCT" in
-      ''|*[!0-9]*) ;;
-      *) [ "$CACHE_INDICATOR_CLEAR_PCT" -ge 1 ] && [ "$CACHE_INDICATOR_CLEAR_PCT" -le 100 ] \
-           && CLEAR_PCT=$CACHE_INDICATOR_CLEAR_PCT ;;
-    esac
+    CLEAR_FILE_PCT=""
+    [ -f "${STATE_DIR}/clear_pct" ] && read -r CLEAR_FILE_PCT < "${STATE_DIR}/clear_pct"
+    for cand in "${CACHE_INDICATOR_CLEAR_PCT:-}" "$CLEAR_FILE_PCT"; do
+      case "$cand" in ''|*[!0-9]*) continue ;; esac
+      if [ "${#cand}" -le 3 ] && [ "$cand" -ge 1 ] && [ "$cand" -le 100 ]; then
+        CLEAR_PCT=$cand
+        break
+      fi
+    done
     if [ "$CTX_INT" -ge "$CLEAR_PCT" ]; then
       CACHE_STR="$(c '38;5;208')cache cold (${IDLE_H}h) · /clear?${RESET}"
     else
