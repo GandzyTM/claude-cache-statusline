@@ -25,3 +25,22 @@ test('parseStamp', async () => {
   expect(parseStamp('1700000000\n')).toBe(1700000000)
   expect(parseStamp('junk')).toBe(null)
 })
+
+import { advice, parseThreshold } from './cache'
+
+test('parseThreshold', async () => {
+  expect(parseThreshold(undefined)).toBe(30)
+  expect(parseThreshold('45')).toBe(45)
+  for (const bad of ['abc', '0', '101', '-5', '', '4.5']) expect(parseThreshold(bad)).toBe(30)
+})
+test('advice', async () => {
+  expect(advice(null, 100, 90, 30)).toBe(null)
+  // warm: advice never shown, whatever the context size
+  expect(advice(0, 3599, 90, 30)).toEqual(view(0, 3599))
+  // cold below / at the threshold
+  expect(advice(0, 3600, 29, 30)).toEqual({ label: 'cold (1h)', color: 'gray' })
+  expect(advice(0, 3600, 30, 30)).toEqual({ label: 'cold (1h) · /clear?', color: 'red' })
+  expect(advice(0, 7300, 50, 30)).toEqual({ label: 'cold (2h) · /clear?', color: 'red' })
+  // unknown context size: no advice
+  expect(advice(0, 3600, null, 30)).toEqual({ label: 'cold (1h)', color: 'gray' })
+})

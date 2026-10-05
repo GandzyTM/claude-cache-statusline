@@ -34,3 +34,27 @@ export function parseStamp(text: string): number | null {
   const t = text.trim()
   return /^\d+$/.test(t) ? Number(t) : null
 }
+
+export const DEFAULT_CLEAR_PCT = 30
+
+// Context-fill percent at which a cold cache turns into a /clear suggestion.
+export function parseThreshold(raw: string | undefined): number {
+  if (raw === undefined || !/^\d+$/.test(raw)) return DEFAULT_CLEAR_PCT
+  const n = Number(raw)
+  return n >= 1 && n <= 100 ? n : DEFAULT_CLEAR_PCT
+}
+
+// `view`, plus a /clear suggestion when the cache is cold and the context is
+// at least thresholdPct of the window. It judges resume cost only: it cannot
+// know whether the context is still needed, hence the question mark.
+export function advice(
+  lastS: number | null,
+  nowS: number,
+  pct: number | null,
+  thresholdPct: number,
+): CacheView | null {
+  const v = view(lastS, nowS)
+  if (v === null || lastS === null || nowS - lastS < TTL_S) return v
+  if (pct === null || pct < thresholdPct) return v
+  return { label: `${v.label} · /clear?`, color: 'red' }
+}
